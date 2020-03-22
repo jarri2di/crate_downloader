@@ -151,37 +151,38 @@ async fn download_crates(
 fn identify_new_crates(index_path: &Path, crate_path: &Path) -> Result<Vec<Crate>, Error> {
     let mut new_crates = Vec::new();
 
-    let walker = WalkDir::new(index_path).into_iter();
-    for entry in walker.filter_entry(|e| is_not_hidden(e) && is_not_config_file(e)) {
-        let entry = entry?;
-        if entry.path().is_file() {
-            let file_path = &entry.path().display().to_string();
-            let file = File::open(&file_path)?;
-            let file = BufReader::new(file);
+    // Retrieve a collection of crate files
+    let index_files: Vec<DirEntry> = WalkDir::new(index_path)
+        .into_iter()
+        .filter_entry(|e| is_not_hidden(e) && is_not_config_file(e))
+        .flatten()
+        .collect();
 
-            for line in file.lines() {
-                let curr_crate: Crate = match serde_json::from_str(&line?) {
-                    Ok(c) => c,
-                    Err(_) => {
-                        // Something went wrong; try parsing next line in file
-                        error!("Unable to parse line in index file {}", &file_path);
-                        continue;
+    // Parse the files to see what crate versions we are missing
+    index_files
+        .into_iter()
+        .filter(|entry| entry.path().is_file())
+        .for_each(|entry| {
+            if let Ok(file) = File::open(&entry.path()) {
+                let file = BufReader::new(file);
+
+                file.lines().flatten().for_each(|line| {
+                    if let Ok(curr_crate) = serde_json::from_str(&line) {
+                        let local_crate_path =
+                            generate_crate_download_path(&curr_crate, crate_path);
+
+                        // Only add crate if it doesn't already exist in local repo
+                        if !Path::new(&local_crate_path).exists() {
+                            info!(
+                                "Identified new crate: {} {}",
+                                curr_crate.name, curr_crate.version
+                            );
+                            new_crates.push(curr_crate);
+                        }
                     }
-                };
-
-                let local_crate_path = generate_crate_download_path(&curr_crate, crate_path);
-
-                // Only add crate if it doesn't already exist in local repo
-                if !Path::new(&local_crate_path).exists() {
-                    info!(
-                        "Identified new crate: {} {}",
-                        curr_crate.name, curr_crate.version
-                    );
-                    new_crates.push(curr_crate)
-                }
+                });
             }
-        }
-    }
+        });
 
     Ok(new_crates)
 }
