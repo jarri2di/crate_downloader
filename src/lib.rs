@@ -42,7 +42,7 @@ pub struct Opt {
     #[structopt(default_value = "https://crates.io/api/v1/crates", short, long, env)]
     crates_io_url: String,
 
-    /// Number of lightweight threads to spawn for downloading crates
+    /// Number of lightweight threads to use for downloading crates
     #[structopt(default_value = "25", parse(try_from_str = parse_thread_size), short, long, env)]
     threads: u8,
 }
