@@ -9,11 +9,11 @@ extern crate failure;
 use failure::Error;
 use futures_util::StreamExt;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufReader;
-use std::path::Path;
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    io::{prelude::*, BufReader},
+    path::{Path, PathBuf},
+};
 use structopt::StructOpt;
 use walkdir::{DirEntry, WalkDir};
 
@@ -43,7 +43,7 @@ pub struct Opt {
     crates_io_url: String,
 
     /// Number of lightweight threads to spawn for downloading crates
-    #[structopt(default_value = "50", parse(try_from_str = parse_thread_size), short, long, env)]
+    #[structopt(default_value = "25", parse(try_from_str = parse_thread_size), short, long, env)]
     threads: u8,
 }
 
@@ -58,16 +58,17 @@ fn parse_path(s: &str) -> Result<PathBuf, &'static str> {
 
 // Convenience function to validate thread size value
 fn parse_thread_size(s: &str) -> Result<u8, &'static str> {
-    let range: std::ops::Range<u8> = 1..100;
+    let help_msg = "Expected value in range 1-50";
+    let range: std::ops::Range<u8> = 1..51;
     match s.parse() {
         Ok(n) => {
             if range.contains(&n) {
                 Ok(n)
             } else {
-                Err("Expected value in range 1-99")
+                Err(help_msg)
             }
         }
-        Err(_) => Err("Expected value in range 1-99"),
+        Err(_) => Err(help_msg),
     }
 }
 
